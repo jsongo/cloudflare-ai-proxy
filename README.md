@@ -1,58 +1,61 @@
 # DeepSeek API on Cloudflare Workers
 
-This project implements a standard DeepSeek API interface using Cloudflare Workers. It provides API endpoints compatible with the OpenAI format, allowing you to use the DeepSeek AI models through a familiar interface.
+基于 Cloudflare Workers 实现的标准 DeepSeek API 接口，兼容 OpenAI 格式，支持流式输出。
 
-## Features
+## 特性
 
-- Compatible with OpenAI API format
-- Supports both streaming and non-streaming responses
-- Implements the `/chat/completions` endpoint
-- Supports multiple DeepSeek models
+- 完全兼容 OpenAI API 格式
+- 支持流式和非流式响应
+- 实现了 `/chat/completions` 和 `/v1/chat/completions` 端点
+- 支持多种 DeepSeek 模型
 
-## API Endpoints
+## 可用模型
 
-### Chat Completions
+- `deepseek-chat` - DeepSeek V3 模型
+- `deepseek-reasoner` - DeepSeek R1 模型 (Qwen-32B)
+
+## API 端点
+
+### 聊天补全 (Chat Completions)
 
 ```
 POST /chat/completions
 POST /v1/chat/completions
 ```
 
-Request format:
+请求格式：
 
 ```json
 {
-  "model": "deepseek-chat",
+  "model": "deepseek-reasoner",
   "messages": [
     {"role": "system", "content": "You are a helpful assistant."},
     {"role": "user", "content": "Hello!"}
   ],
-  "stream": false,
+  "stream": true,
   "max_tokens": 512,
   "temperature": 0.7
 }
 ```
 
-Available models:
-- `deepseek-chat` - DeepSeek V3 model
-- `deepseek-reasoner` - DeepSeek R1 model
-
-## Development
+## 开发
 
 ```bash
-# Install dependencies
+# 安装依赖
 pnpm install
 
-# Start development server
+# 启动开发服务器
 pnpm dev
 
-# Deploy to Cloudflare
+# 部署到 Cloudflare
 pnpm deploy
 ```
 
-## Testing
+## 测试
 
-You can test the API using curl:
+使用 curl 测试 API：
+
+### 非流式响应
 
 ```bash
 curl http://localhost:8787/chat/completions \
@@ -66,7 +69,7 @@ curl http://localhost:8787/chat/completions \
   }'
 ```
 
-For streaming responses:
+### 流式响应
 
 ```bash
 curl http://localhost:8787/chat/completions \
@@ -79,7 +82,3 @@ curl http://localhost:8787/chat/completions \
     "stream": true
   }'
 ```
-
-## Demo
-
-A demo endpoint is available at the root path (`/` or `/demo`) that demonstrates streaming responses.

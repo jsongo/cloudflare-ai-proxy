@@ -1,12 +1,15 @@
 import { ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChunk } from './types';
 
-// Map DeepSeek model names to Cloudflare AI model names
+// DeepSeek 模型名称映射到 Cloudflare AI 模型名称
 const MODEL_MAPPING: Record<string, string> = {
   'deepseek-chat': '@cf/deepseek-ai/deepseek-v3',
   'deepseek-reasoner': '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
-  // Add more models as needed
 };
 
+/**
+ * 创建聊天补全响应
+ * 支持流式和非流式响应
+ */
 export async function createChatCompletion(
   request: ChatCompletionRequest,
   env: any
@@ -14,24 +17,18 @@ export async function createChatCompletion(
   try {
     const { model, messages, stream = false, ...otherParams } = request;
     
-    // Map the model name to Cloudflare AI model name
+    // 映射模型名称到 Cloudflare AI 模型名称
     const cfModel = MODEL_MAPPING[model] || model;
     
-    // Log the request for debugging
-    console.log('Request to Cloudflare AI:', { cfModel, stream, messages, ...otherParams });
-    
-    // Make sure stream is a boolean
+    // 确保 stream 是布尔值
     const isStream = stream === true || stream === 'true';
     
-    // Call Cloudflare AI
+    // 调用 Cloudflare AI
     const aiResponse = await env.AI.run(cfModel, {
-      stream: isStream, // Ensure we pass a boolean
+      stream: isStream,
       messages,
       ...otherParams,
     });
-
-    // Log the response for debugging
-    console.log('Response from Cloudflare AI:', typeof aiResponse, aiResponse);
     
     // Handle streaming and non-streaming responses differently
     if (isStream) {
@@ -46,25 +43,19 @@ export async function createChatCompletion(
         },
       });
     } else {
-      // For non-streaming, convert the stream to a JSON response
-      // First, read the stream
+      // 对于非流式响应，将流转换为 JSON 响应
       const reader = aiResponse.getReader();
       let result = '';
       
       try {
-        // Read the stream chunks
+        // 读取流块
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
           result += new TextDecoder().decode(value);
         }
         
-        console.log('Non-streaming response content:', result);
-        
-        // Try to extract the response content
-        let content = result;
-        
-        // Format the response according to DeepSeek API format
+        // 格式化响应为 DeepSeek API 格式
         const response: ChatCompletionResponse = {
           id: `chatcmpl-${Date.now()}`,
           object: 'chat.completion',
@@ -75,7 +66,7 @@ export async function createChatCompletion(
               index: 0,
               message: {
                 role: 'assistant',
-                content: content,
+                content: result,
               },
               finish_reason: 'stop',
             },
@@ -114,7 +105,9 @@ export async function createChatCompletion(
   }
 }
 
-// Helper function to transform Cloudflare AI stream to DeepSeek API format
+/**
+ * 将 Cloudflare AI 流转换为 DeepSeek API 格式
+ */
 export function transformStreamToDeepSeekFormat(
   stream: ReadableStream,
   model: string
@@ -122,18 +115,16 @@ export function transformStreamToDeepSeekFormat(
   const id = `chatcmpl-${Date.now()}`;
   const created = Math.floor(Date.now() / 1000);
   
-  // Create a transformer to convert Cloudflare AI stream format to DeepSeek API format
+  // 创建转换器将 Cloudflare AI 流格式转换为 DeepSeek API 格式
   const transformer = new TransformStream({
     async transform(chunk, controller) {
       try {
         const text = new TextDecoder().decode(chunk);
-        console.log('Stream chunk:', text);
         
-        // Skip empty chunks
+        // 跳过空块
         if (!text.trim()) return;
         
-        // Handle the chunk as a whole instead of line by line
-        // This helps with chunks that contain newlines in the JSON
+        // 整体处理块而不是按行处理
         if (text.startsWith('data: ')) {
           const data = text.substring(6).trim();
           
@@ -143,20 +134,15 @@ export function transformStreamToDeepSeekFormat(
           }
           
           try {
-            // Try to parse as JSON
-            // 检查数据是否为空或格式不完整
-            if (!data || data === '{}' || data.includes('"usage"') && !data.includes('"response"')) {
-              // 跳过空数据或不包含响应内容的数据
-              console.log('Skipping empty or incomplete data:', data);
+            // 跳过空数据或不完整数据
+            if (!data || data === '{}' || (data.includes('"usage"') && !data.includes('"response"'))) {
               return;
             }
             
             const parsed = JSON.parse(data);
-            console.log('Parsed chunk:', parsed);
             
             // 只有当有响应内容时才发送
             if (parsed.response !== undefined) {
-              // Create DeepSeek API format chunk
               const chunk: ChatCompletionChunk = {
                 id,
                 object: 'chat.completion.chunk',
@@ -176,14 +162,10 @@ export function transformStreamToDeepSeekFormat(
               controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
             }
           } catch (e) {
-            // If JSON parsing fails, try to extract the response value directly
-            console.log('JSON parsing failed, trying direct extraction');
-            
-            // Try to extract the response value using regex
+            // JSON 解析失败时尝试直接提取响应值
             const responseMatch = data.match(/"response":"([^"]*)"/); 
             if (responseMatch && responseMatch[1]) {
               const content = responseMatch[1];
-              console.log('Extracted content:', content);
               
               const chunk: ChatCompletionChunk = {
                 id,
@@ -203,8 +185,7 @@ export function transformStreamToDeepSeekFormat(
               
               controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(chunk)}\n\n`));
             } else if (data && data.trim() && data !== '{}') {
-              // 只有当数据不为空且不是空对象时才尝试传递原始数据
-              // 但不显示错误消息，只传递空内容
+              // 对于无法解析的非空数据，发送空内容
               const chunk: ChatCompletionChunk = {
                 id,
                 object: 'chat.completion.chunk',
@@ -225,11 +206,11 @@ export function transformStreamToDeepSeekFormat(
             }
           }
         } else {
-          // For non-data chunks, pass through as is
+          // 对于非 data 块，原样传递
           controller.enqueue(new TextEncoder().encode(`${text}\n`));
         }
       } catch (error) {
-        console.error('Error in stream transform:', error);
+        // 错误处理
       }
     },
   });

@@ -1,24 +1,47 @@
 /**
  * DeepSeek API implementation for Cloudflare Workers
  * 
- * This worker implements a standard DeepSeek API interface compatible with OpenAI format
- * Endpoints:
- * - POST /chat/completions - For chat completions (streaming and non-streaming)
- *
- * Learn more at https://api-docs.deepseek.com/
+ * 实现标准的 DeepSeek API 接口，兼容 OpenAI 格式
+ * 端点:
+ * - POST /chat/completions - 聊天补全（支持流式和非流式）
+ * - POST /v1/chat/completions - 聊天补全（OpenAI 兼容路径）
  */
 
 import { createChatCompletion } from './deepseek-api';
 import { ChatCompletionRequest } from './types';
 
+/**
+ * 验证 API token
+ * 从请求头中获取 Authorization 并与环境变量中的 API_TOKEN 进行比对
+ */
+function validateToken(request: Request, env: Env): boolean {
+	// 获取 Authorization 头
+	const authHeader = request.headers.get('Authorization');
+	
+	// 检查是否存在 Authorization 头
+	if (!authHeader) {
+		return false;
+	}
+	
+	// 检查格式是否为 "Bearer <token>"
+	const match = authHeader.match(/^Bearer\s+(.+)$/);
+	if (!match) {
+		return false;
+	}
+	
+	// 提取 token 并与环境变量中的 API_TOKEN 比对
+	const token = match[1];
+	return token === env.API_TOKEN;
+}
+
 export default {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		// Handle CORS preflight requests
+		// 处理 CORS 预检请求
 		if (request.method === 'OPTIONS') {
 			return handleCORS(request);
 		}
 
-		// Add CORS headers to all responses
+		// 为所有响应添加 CORS 头
 		const corsHeaders = {
 			'Access-Control-Allow-Origin': '*',
 			'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -29,7 +52,7 @@ export default {
 			const url = new URL(request.url);
 			const path = url.pathname;
 
-			// Chat completions endpoint
+			// 聊天补全端点
 			if (path === '/chat/completions' || path === '/v1/chat/completions') {
 				if (request.method !== 'POST') {
 					return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -37,12 +60,18 @@ export default {
 						headers: { 'content-type': 'application/json', ...corsHeaders },
 					});
 				}
+				
+				// 验证 API token
+				if (!validateToken(request, env)) {
+					return new Response(JSON.stringify({ error: 'Unauthorized', message: 'Invalid API token' }), {
+						status: 401,
+						headers: { 'content-type': 'application/json', ...corsHeaders },
+					});
+				}
 
 				try {
-					// Parse the request body
+					// 解析请求体
 					const body = await request.json() as ChatCompletionRequest;
-					// Log the request body for debugging
-					console.log('Request body:', JSON.stringify(body, null, 2));
 					return await createChatCompletion(body, env);
 				} catch (error) {
 					console.error('Error processing chat completion:', error);
@@ -63,24 +92,7 @@ export default {
 				}
 			}
 
-			// Demo endpoint - for testing
-			if (path === '/' || path === '/demo') {
-				const stream = await env.AI.run("@cf/deepseek-ai/deepseek-r1-distill-qwen-32b", {
-					stream: true,
-					max_tokens: 512,
-					messages: [
-						{
-							role: "user",
-							content: "What is the origin of the phrase Hello, World"
-						}
-					],
-				});
-				return new Response(stream, {
-					headers: { "content-type": "text/event-stream", ...corsHeaders },
-				});
-			}
-
-			// Return 404 for all other routes
+			// 返回 404 给所有其他路由
 			return new Response(JSON.stringify({ error: 'Not found' }), {
 				status: 404,
 				headers: { 'content-type': 'application/json', ...corsHeaders },
@@ -105,7 +117,7 @@ export default {
 	},
 } satisfies ExportedHandler<Env>;
 
-// Handle CORS preflight requests
+// 处理 CORS 预检请求
 function handleCORS(request: Request): Response {
 	return new Response(null, {
 		status: 204,
