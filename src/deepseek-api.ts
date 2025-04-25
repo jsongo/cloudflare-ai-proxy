@@ -43,16 +43,37 @@ export async function createChatCompletion(
         },
       });
     } else {
-      // 对于非流式响应，将流转换为 JSON 响应
-      const reader = aiResponse.getReader();
+      // 对于非流式响应，处理响应内容
       let result = '';
       
       try {
-        // 读取流块
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          result += new TextDecoder().decode(value);
+        // 检查 aiResponse 是否为 ReadableStream
+        if (aiResponse && typeof aiResponse.getReader === 'function') {
+          // 如果是流，读取流内容
+          const reader = aiResponse.getReader();
+          
+          // 读取流块
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            result += new TextDecoder().decode(value);
+          }
+        } else if (typeof aiResponse === 'string') {
+          // 如果是字符串，直接使用
+          result = aiResponse;
+        } else if (aiResponse && typeof aiResponse === 'object') {
+          // 如果是对象，尝试提取响应
+          if ('response' in aiResponse) {
+            result = aiResponse.response || '';
+          } else if ('text' in aiResponse) {
+            result = aiResponse.text || '';
+          } else {
+            // 如果无法提取，转为 JSON 字符串
+            result = JSON.stringify(aiResponse);
+          }
+        } else {
+          // 如果都不是，使用空字符串
+          result = '';
         }
         
         // 格式化响应为 DeepSeek API 格式

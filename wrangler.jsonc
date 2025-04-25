@@ -12,6 +12,9 @@
 	},
 	"ai": {
 		"binding": "AI"
+	},
+	"vars": {
+		"API_TOKEN": "your_api_token"
 	}
 	/**
 	 * Smart Placement
