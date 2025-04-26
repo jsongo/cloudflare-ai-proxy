@@ -39,7 +39,30 @@ POST /v1/chat/completions
 ```
 
 ## 开发
+### 先初始化下 wrangler.jsonc，创建在根目录，
+```jsonc
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "deepseek-r1-cloudflare",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-04-25",
+	"observability": {
+		"enabled": true
+	},
+	"ai": {
+		"binding": "AI"
+	},
+	"vars": {
+		"API_TOKEN": "your_api_key"
+	}
+}
+```
 
+### 运行相应命令
 ```bash
 # 安装依赖
 pnpm install

@@ -1,0 +1,19 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "deepseek-r1-cloudflare",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-04-25",
+	"observability": {
+		"enabled": true
+	},
+	"ai": {
+		"binding": "AI"
+	},
+	"vars": {
+		"API_TOKEN": "your_api_key"
+	}
+}
