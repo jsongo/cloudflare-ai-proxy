@@ -11,8 +11,19 @@
 
 ## 可用模型
 
-- `deepseek-chat` - DeepSeek V3 模型
-- `deepseek-reasoner` - DeepSeek R1 模型 (Qwen-32B)
+支持以下 DeepSeek 模型名称映射到 Cloudflare AI 模型：
+
+- `qwq` - 映射到 `@cf/qwen/qwq-32b`
+- `qwen-coder` - 映射到 `@cf/qwen/qwen2.5-coder-32b-instruct`
+- `deepseek-reasoner` - 映射到 `@cf/deepseek-ai/deepseek-r1-distill-qwen-32b`
+
+也可以直接使用 Cloudflare AI 上的其他模型名称，如：
+
+- `@cf/meta/llama-2-7b-chat-int8`
+- `@cf/mistral/mistral-7b-instruct-v0.1`
+- `@cf/openchat/openchat-3.5-0106`
+
+完整模型列表参考 [Cloudflare AI 文档](https://developers.cloudflare.com/workers-ai/models/)
 
 ## API 端点
 
@@ -22,6 +33,7 @@
 POST /chat/completions
 POST /v1/chat/completions
 ```
+其中第一个是为了兼容。
 
 请求格式：
 
